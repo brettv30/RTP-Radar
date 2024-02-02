@@ -8,9 +8,9 @@ feed_list = [
     # "http://www.wral.com/news/rss/142/",
     # "https://www.durhamnc.gov/RSSFeed.aspx?ModID=76&CID=All-0",
     # "https://abc11.com/feed/",
-    # "https://www.dailytarheel.com/plugin/feeds/tag/pageOne"
+    "https://www.dailytarheel.com/plugin/feeds/tag/pageOne"
     # "https://reddit.com/r/raleigh/new/.rss?sort=new",
-    "https://reddit.com/r/chapelhill/new/.rss?sort=new",
+    # "https://reddit.com/r/chapelhill/new/.rss?sort=new",
     # "https://reddit.com/r/bullcity/new/.rss?sort=new",
 ]
 
@@ -23,7 +23,6 @@ article_content = []
 for source in feed_list:
     feed = feedparser.parse(source)
     for item in feed.entries:
-        print(item.keys())
         published.append(
             item.published if hasattr(item, "published") else "Unknown date"
         )
@@ -87,10 +86,7 @@ def clean_published_dates(date_list):
 
 
 def clean_titles(title_list):
-    # Replace any instances of \n or \' in the title with nothing or ', respectively
-    replace_newlines = [
-        title.replace("\n", "").replace("\\'", "'") for title in title_list
-    ]
+    replace_newlines = replace_newlines_and_slashes(title_list)
 
     # Processing the list to remove " - " at the end of each string
     replace_suffixes = [title.rstrip(" - ") for title in replace_newlines]
@@ -99,7 +95,32 @@ def clean_titles(title_list):
     return [s.strip() for s in replace_suffixes]
 
 
-print(authors)
-print(titles)
-cleaned_titles = clean_titles(titles)
-print(cleaned_titles)
+def replace_newlines_and_slashes(data_list):
+    # Replace any instances of \n or \' in the title with nothing or ', respectively
+    return [
+        info.replace("\n", "").replace("\\'", "'").replace("\\\\'", "'")
+        for info in data_list
+    ]
+
+
+def clean_content(content_list):
+    replace_newlines = replace_newlines_and_slashes(content_list)
+
+    # List of prefixes
+    prefixes = [
+        "Chapel Hill, NC",
+        "A subreddit for the city (and county) of Durham, North Carolina.",
+        'Raleigh is the capital of the state of North Carolina as well as the seat of Wake County. Raleigh is known as the "City of Oaks" for its many oak trees. Join us on Discord! https://discord.gg/PPCARNjJAg',
+    ]
+
+    # Iterate through each element and check for prefixes
+    for i, element in enumerate(replace_newlines):
+        for prefix in prefixes:
+            if element.startswith(prefix):
+                # Replace the prefix with whitespace
+                replace_newlines[i] = element.replace(
+                    prefix, "", 1
+                )  # Replace only the first occurrence
+                break  # Stop checking other prefixes if one has already matched
+
+    return [s.strip() for s in replace_newlines]
