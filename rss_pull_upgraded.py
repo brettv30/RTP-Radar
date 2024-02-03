@@ -7,7 +7,7 @@ import requests
 from datetime import datetime
 import pandas as pd
 from contextlib import contextmanager
-import time as time
+import time as tme
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -15,11 +15,11 @@ logger = logging.getLogger(__name__)
 
 @contextmanager
 def timer(label):
-    start = time.time()
+    start = tme.time()
     try:
         yield
     finally:
-        end = time.time()
+        end = tme.time()
     time = round(end - start, 2)
     logger.info(f"{label}: {time}, seconds")
 
