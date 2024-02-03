@@ -6,9 +6,22 @@ import feedparser
 import requests
 from datetime import datetime
 import pandas as pd
+from contextlib import contextmanager
+import time
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
+
+
+@contextmanager
+def timer(label):
+    start = time.time()
+    try:
+        yield
+    finally:
+        end = time.time()
+    time = round(end - start, 2)
+    logger.info(f"{label}: {time}, seconds")
 
 
 def parse_feed(feed_url):
@@ -27,24 +40,28 @@ def is_valid_url(url):
         return False
 
 
-def process_url(url):
+def extract_content(url):
     if is_valid_url(url):
         page = requests.get(url).text
         soup = parse_page(page)
-        # Extract title
-        if "reddit" in url:
-            title = soup.find("h1").get_text()
-        else:
-            title = soup.title.get_text()
-
-        # Extract content
-        content = soup.find_all("p")
-        full_text = " ".join([p.get_text() for p in content])
-
-        return title, full_text
+        item = soup.find_all("p")
+        return " ".join([" ".join(text.get_text().split()) for text in item])
     else:
-        logger.warning(f"Invalid URL: {url}")
-        return None, None
+        logger.warning(f"Invalid URL - Content: {url}")
+        return None
+
+
+def extract_titles(url):
+    if is_valid_url(url):
+        page = requests.get(url).text
+        soup = parse_page(page)
+        description = soup.find_all("h1")
+        header = "".join(f"{content.get_text()}" for content in description)
+        title = f"{header}" if "reddit" in url else f"{soup.title.get_text()}"
+        return title
+    else:
+        logger.warning(f"Invalid URL - Titles: {url}")
+        return None
 
 
 def build_dataframe(published, authors, all_urls, title, article_content):
@@ -116,11 +133,11 @@ def clean_content(content_list):
 
 
 feed_list = [
-    # "http://www.wral.com/news/rss/142/",
-    # "https://www.durhamnc.gov/RSSFeed.aspx?ModID=76&CID=All-0",
+    "http://www.wral.com/news/rss/142/",
+    "https://www.durhamnc.gov/RSSFeed.aspx?ModID=76&CID=All-0",
     # "https://abc11.com/feed/",
     "https://www.dailytarheel.com/plugin/feeds/tag/pageOne"
-    # "https://reddit.com/r/raleigh/new/.rss?sort=new",
+    "https://reddit.com/r/raleigh/new/.rss?sort=new",
     # "https://reddit.com/r/chapelhill/new/.rss?sort=new",
     # "https://reddit.com/r/bullcity/new/.rss?sort=new",
 ]
@@ -138,24 +155,43 @@ with concurrent.futures.ThreadPoolExecutor() as executor:
         feed = future.result()
 
         for item in feed.entries:
-            published.append(
-                item.published if hasattr(item, "published") else "Unknown date"
-            )
+            with timer("Extracting publish date"):
+                if hasattr(item, "published"):
+                    published.append(item.published)
+                else:
+                    published.append("Unknown date")
 
-            try:
-                authors.append(item.author)
-            except AttributeError:
-                authors.append("Unknown")
+            with timer("Extracting authors"):
+                try:
+                    authors.append(item.author)
+                except AttributeError:
+                    authors.append("Unknown")
 
-            if hasattr(item, "link"):
-                all_urls.append(item.link)
-            else:
-                all_urls.append("Unknown link")
+            with timer("Extracting URLs"):
+                if hasattr(item, "link"):
+                    all_urls.append(item.link)
+                else:
+                    all_urls.append("Unknown link")
 
-        results = executor.map(process_url, all_urls)
+            with timer("Extracting titles"):
+                if hasattr(item, "title"):
+                    titles.append(item.title)
+                else:
+                    title_results = extract_titles(item.link)
+                    if title_results is not None:
+                        titles.append(title_results)
 
-        for result in results:
-            if result is not None:
-                title, content = result
-                titles.append(title)
-                article_content.append(content)
+            with timer("Extracting content"):
+                if hasattr(item, "content"):
+                    article_content.append(item.content)
+                else:
+                    content_results = extract_content(item.link)
+                    if content_results is not None:
+                        article_content.append(content_results)
+
+initial_daily_df = build_dataframe(
+    published, authors, all_urls, titles, article_content
+)
+
+print(initial_daily_df.head())
+print(initial_daily_df.tail())
