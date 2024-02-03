@@ -21,7 +21,7 @@ def timer(label):
     finally:
         end = tme.time()
     time = round(end - start, 2)
-    logger.info(f"{label}: {time}, seconds")
+    logger.info(f"{label}: {time} seconds")
 
 
 def parse_feed(feed_url):
@@ -135,11 +135,11 @@ def clean_content(content_list):
 feed_list = [
     "http://www.wral.com/news/rss/142/",
     "https://www.durhamnc.gov/RSSFeed.aspx?ModID=76&CID=All-0",
-    # "https://abc11.com/feed/",
+    "https://abc11.com/feed/",
     "https://www.dailytarheel.com/plugin/feeds/tag/pageOne"
     "https://reddit.com/r/raleigh/new/.rss?sort=new",
-    # "https://reddit.com/r/chapelhill/new/.rss?sort=new",
-    # "https://reddit.com/r/bullcity/new/.rss?sort=new",
+    "https://reddit.com/r/chapelhill/new/.rss?sort=new",
+    "https://reddit.com/r/bullcity/new/.rss?sort=new",
 ]
 
 all_urls = []
@@ -183,11 +183,28 @@ with concurrent.futures.ThreadPoolExecutor() as executor:
 
             with timer("Extracting content"):
                 if hasattr(item, "content"):
-                    article_content.append(item.content)
+                    print(item.link)
+                    print(item.content)
+                    if "reddit" in item.link:
+                        # Extracting the HTML part from your list element
+                        html_content = item.content[0]["value"]
+
+                        # Parsing the HTML with BeautifulSoup
+                        soup = parse_page(html_content)
+
+                        # Extracting text from all <p> tags
+                        article_content.append(p.get_text() for p in soup.find_all("p"))
+                    elif "abc11" in item.link:
+                        content_results = extract_content(item.link)
+                        if content_results is not None:
+                            article_content.append(content_results)
+                    else:
+                        article_content.append(item.content)
                 else:
                     content_results = extract_content(item.link)
                     if content_results is not None:
                         article_content.append(content_results)
+
 
 initial_daily_df = build_dataframe(
     published, authors, all_urls, titles, article_content
@@ -195,3 +212,4 @@ initial_daily_df = build_dataframe(
 
 print(initial_daily_df.head())
 print(initial_daily_df.tail())
+print(initial_daily_df.info())
