@@ -7,7 +7,7 @@ import requests
 from datetime import datetime
 import pandas as pd
 from contextlib import contextmanager
-import time
+import time as time
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
