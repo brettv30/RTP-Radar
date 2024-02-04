@@ -7,7 +7,7 @@ import requests
 import pandas as pd
 from contextlib import contextmanager
 import time as tme
-from datetime import datetime
+from datetime import datetime, timedelta
 import pytz
 
 logging.basicConfig(level=logging.INFO)
@@ -25,7 +25,7 @@ def timer(label):
     logger.info(f"{label}: {time} seconds")
 
 
-class DataTransformer:
+class DataCleaner:
     def __init__(self):
         self.date_formats = [
             "%Y-%m-%dT%H:%M:%S%z",
@@ -104,6 +104,30 @@ class DataTransformer:
             dataframe["cleaned_content"] = [s.strip() for s in replace_newlines]
 
         return dataframe
+
+    def filter_for_last_24_hrs(self, dataframe):
+        with timer("Filtering for data shared within the last 24 hours"):
+            # Get the current datetime in UTC, then convert to desired Timezone
+            now_utc = datetime.now(pytz.utc)
+            now_tz = now_utc.astimezone(pytz.timezone(self.desired_timezone))
+
+            # Compute the datetime 24 hours ago
+            hours_ago_24_tz = now_tz - timedelta(hours=24)
+
+            # Filter the DataFrame for rows where 'datetime_column' is between now_tz and hours_ago_24_tz
+            last_24_dataframe = dataframe[
+                (dataframe["eastern_published"] >= hours_ago_24_tz)
+                & (dataframe["eastern_published"] <= now_tz)
+            ]
+
+        return last_24_dataframe
+
+    def filter_for_populated_content(self, dataframe):
+        with timer("Filtering for populated content"):
+            # Filter the DataFrame for rows where 'content' is not empty
+            populated_content_dataframe = dataframe[dataframe["cleaned_content"] != ""]
+
+            return populated_content_dataframe
 
 
 class URLParser:
@@ -245,8 +269,17 @@ if __name__ == "__main__":
     dict_cols = list(test_dict.keys())
     initial_df = pd.DataFrame(test_dict, columns=dict_cols)
 
-    preprocessor = DataTransformer()
+    preprocessor = DataCleaner()
 
-    interim_df = preprocessor.clean_published_dates(initial_df)
-    interim_df2 = preprocessor.clean_titles(interim_df)
-    interim_df3 = preprocessor.clean_content(interim_df2)
+    cleaned_dates_df = preprocessor.clean_published_dates(initial_df)
+
+    last_24_df = preprocessor.filter_for_last_24_hrs(cleaned_dates_df)
+
+    cleaned_titles_df = preprocessor.clean_titles(last_24_df)
+    cleaned_content_df = preprocessor.clean_content(cleaned_titles_df)
+
+    populated_content_df = preprocessor.filter_for_populated_content(cleaned_content_df)
+
+    # Note here to think about how much preprocessing we want to do on the content.
+    # For example, we could remove stop words, punctuation, and other non-essential characters.
+    # We also could exclude any observations that have content which is not relevant to raligh, durham, chapel hill, or the RTP area
