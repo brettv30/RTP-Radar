@@ -52,8 +52,27 @@ class DatabaseConfig:
 
 
 class DatabaseCreate:
-    def __init__(self, db_config) -> None:
-        self.db_config = db_config
+    def __init__(self, connection) -> None:
+        self.connection = connection
+
+    def create_database(self, database_name):
+        """Create a new database"""
+        with timer(f"Creating a new database - {database_name}"):
+            with self.connection.cursor() as cur:
+                # create a new database
+                cur.execute("CREATE DATABASE xxxxxxx")
+                logger.info("Database created successfully.")
+
+    def create_tables(self, commands):
+        """Create tables in the PostgreSQL database"""
+        with timer("Creating tables"):
+            try:
+                with self.connection.cursor() as cur:
+                    # execute the CREATE TABLE statement
+                    for command in commands:
+                        cur.execute(command)
+            except (psycopg2.DatabaseError, Exception) as error:
+                print(error)
 
 
 class DatabaseInsert:
@@ -69,3 +88,9 @@ class DatabaseExtract:
 class NoSectionError(Exception):
     def __init__(self, message):
         super().__init__(message)
+
+
+if __name__ == "__main__":
+    pg_config = DatabaseConfig("database.ini", "postgresql")
+    config = pg_config.load_config()
+    conn = pg_config.connect_to_postgres(config)
