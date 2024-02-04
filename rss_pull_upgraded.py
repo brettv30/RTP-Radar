@@ -4,10 +4,11 @@ import concurrent.futures
 from bs4 import BeautifulSoup
 import feedparser
 import requests
-from datetime import datetime
 import pandas as pd
 from contextlib import contextmanager
 import time as tme
+from datetime import datetime
+import pytz
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -26,37 +27,57 @@ def timer(label):
 
 class DataTransformer:
     def __init__(self):
-        self.date_format = "%a, %d %b %Y %H:%M:%S %z"
+        self.date_formats = [
+            "%Y-%m-%dT%H:%M:%S%z",
+            "%a, %d %b %Y %H:%M:%S %z",
+            "%a, %d %b %Y %H:%M %z",
+        ]
         self.reddit_content_prefixes = [
             "Chapel Hill, NC",
             "A subreddit for the city (and county) of Durham, North Carolina.",
             'Raleigh is the capital of the state of North Carolina as well as the seat of Wake County. Raleigh is known as the "City of Oaks" for its many oak trees. Join us on Discord! https://discord.gg/PPCARNjJAg',
         ]
+        self.desired_timezone = "US/Eastern"
+
+    # Function to parse date with multiple formats and convert to desired Timezone
+    def parse_date_and_convert_tz(self, date_str):
+        # Loop through the formats and try to parse the date
+        for fmt in self.date_formats:
+            try:
+                date_obj = datetime.strptime(date_str, fmt)
+                # Convert to Desired Timezone
+                timezone = pytz.timezone(self.desired_timezone)
+                return date_obj.astimezone(timezone)
+            except ValueError:
+                continue  # Try the next format if the current one fails
+
+        # Return pd.NaT if none of the dates match the expected format.
+        # If we see this, we should identify the new format and include it in self.date_formats
+        return pd.NaT
 
     def clean_published_dates(self, dataframe):
-        date_list = dataframe["published"]
-        # Parse each string into a datetime object
-        parsed_dates = [
-            datetime.strptime(date_string, self.date_format)
-            for date_string in date_list
-        ]
-        # Convert datetime objects to strings in the desired format
-        dataframe["cleaned_published"] = [
-            date.strftime("%Y-%m-%d %H:%M:%S") for date in parsed_dates
-        ]
+        with timer("Converting published date to desired timezone"):
+            dataframe["eastern_published"] = dataframe["published"].apply(
+                self.parse_date_and_convert_tz
+            )
+
+            dataframe["formatted_eastern_published"] = dataframe[
+                "eastern_published"
+            ].dt.strftime("%Y-%m-%d %H:%M:%S")
 
         return dataframe
 
     def clean_titles(self, dataframe):
-        title_list = dataframe["title"]
+        with timer("Cleaning titles"):
+            title_list = dataframe["title"]
 
-        replace_newlines = self.replace_newlines_and_slashes(title_list)
+            replace_newlines = self.replace_newlines_and_slashes(title_list)
 
-        # Processing the list to remove " - " at the end of each string
-        replace_suffixes = [title.rstrip(" - ") for title in replace_newlines]
+            # Processing the list to remove " - " at the end of each string
+            replace_suffixes = [title.rstrip(" - ") for title in replace_newlines]
 
-        # Remove leading and trailing whitespace from each element
-        dataframe["cleaned_title"] = [s.strip() for s in replace_suffixes]
+            # Remove leading and trailing whitespace from each element
+            dataframe["cleaned_title"] = [s.strip() for s in replace_suffixes]
 
         return dataframe
 
@@ -65,21 +86,22 @@ class DataTransformer:
         return [info.replace("\n", "").replace("\\'", "'") for info in data_list]
 
     def clean_content(self, dataframe):
-        content_list = dataframe["content"]
+        with timer("Cleaning content"):
+            content_list = dataframe["content"]
 
-        replace_newlines = self.replace_newlines_and_slashes(content_list)
+            replace_newlines = self.replace_newlines_and_slashes(content_list)
 
-        # Iterate through each element and check for prefixes
-        for i, element in enumerate(replace_newlines):
-            for prefix in self.reddit_content_prefixes:
-                if element.startswith(prefix):
-                    # Replace the prefix with whitespace
-                    replace_newlines[i] = element.replace(
-                        prefix, "", 1
-                    )  # Replace only the first occurrence
-                    break  # Stop checking other prefixes if one has already matched
+            # Iterate through each element and check for prefixes
+            for i, element in enumerate(replace_newlines):
+                for prefix in self.reddit_content_prefixes:
+                    if element.startswith(prefix):
+                        # Replace the prefix with whitespace
+                        replace_newlines[i] = element.replace(
+                            prefix, "", 1
+                        )  # Replace only the first occurrence
+                        break  # Stop checking other prefixes if one has already matched
 
-        dataframe["cleaned_content"] = [s.strip() for s in replace_newlines]
+            dataframe["cleaned_content"] = [s.strip() for s in replace_newlines]
 
         return dataframe
 
@@ -204,32 +226,27 @@ class RssPull:
                 return item.content
 
 
-feed_list = [
-    "http://www.wral.com/news/rss/142/",
-    "https://www.durhamnc.gov/RSSFeed.aspx?ModID=76&CID=All-0",
-    "https://abc11.com/feed/",
-    "https://www.dailytarheel.com/plugin/feeds/tag/pageOne"
-    "https://reddit.com/r/raleigh/new/.rss?sort=new",
-    "https://reddit.com/r/chapelhill/new/.rss?sort=new",
-    "https://reddit.com/r/bullcity/new/.rss?sort=new",
-]
+if __name__ == "__main__":
+    feed_list = [
+        "http://www.wral.com/news/rss/142/",
+        "https://www.durhamnc.gov/RSSFeed.aspx?ModID=76&CID=All-0",
+        "https://abc11.com/feed/",
+        "https://www.dailytarheel.com/plugin/feeds/tag/pageOne"
+        "https://reddit.com/r/raleigh/new/.rss?sort=new",
+        "https://reddit.com/r/chapelhill/new/.rss?sort=new",
+        "https://reddit.com/r/bullcity/new/.rss?sort=new",
+    ]
 
+    parser = URLParser()
 
-parser = URLParser()
+    test = RssPull(parser, feed_list)
+    test_dict = test.pull_feed()
 
-test = RssPull(parser, feed_list)
-test_dict = test.pull_feed()
+    dict_cols = list(test_dict.keys())
+    initial_df = pd.DataFrame(test_dict, columns=dict_cols)
 
-dict_cols = list(test_dict.keys())
-initial_df = pd.DataFrame(test_dict, columns=dict_cols)
+    preprocessor = DataTransformer()
 
-preprocessor = DataTransformer()
-
-test_df = preprocessor.clean_published_dates(initial_df)
-print(test_df.info())
-
-test_df2 = preprocessor.clean_titles(test_df)
-print(test_df2.info())
-
-test_df3 = preprocessor.clean_content(test_df2)
-print(test_df3.info())
+    interim_df = preprocessor.clean_published_dates(initial_df)
+    interim_df2 = preprocessor.clean_titles(interim_df)
+    interim_df3 = preprocessor.clean_content(interim_df2)
