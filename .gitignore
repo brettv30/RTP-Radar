@@ -3,3 +3,6 @@
 
 # Environment Variables
 .env
+
+# Database Connection
+database.ini
