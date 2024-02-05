@@ -93,4 +93,17 @@ class NoSectionError(Exception):
 if __name__ == "__main__":
     pg_config = DatabaseConfig("database.ini", "postgresql")
     config = pg_config.load_config()
+    print(config)
     conn = pg_config.connect_to_postgres(config)
+    print(conn)
+
+    create_landing_table_command = """
+                                    CREATE TABLE IF NOT EXISTS  land_tbl_raw_feeds(
+                                    table_id integer primary key generated always as identity,
+                                    extraction_date timestamp with time zone not null,
+                                    published_date timestamp with time zone not null,
+                                    url text not null, 
+                                    author text, 
+                                    title text not null,
+                                    content text not null 
+                                    """
