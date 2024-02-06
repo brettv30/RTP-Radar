@@ -6,3 +6,6 @@
 
 # Database Connection
 database.ini
+
+# Cache
+/__pycache__
