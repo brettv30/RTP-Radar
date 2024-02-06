@@ -1,5 +1,7 @@
 from configparser import ConfigParser
 import psycopg2
+import pandas as pd
+import psycopg2.extras as extras
 from contextlib import contextmanager
 import time as tme
 import logging
@@ -56,7 +58,7 @@ class DatabaseManipulate(DatabaseConfig):
     def __init__(self, file, section) -> None:
         super().__init__(file, section)
 
-    def run_commands(self, commands):
+    def run_ddl_commands(self, commands):
         with timer("Running database command(s)"):
             try:
                 conn = self.connect_to_postgres()
@@ -68,6 +70,39 @@ class DatabaseManipulate(DatabaseConfig):
                     logger.info("Command executed successfully.")
             except (psycopg2.DatabaseError, Exception) as error:
                 logger.error(error)
+            finally:
+                if conn is not None:
+                    conn.close()
+
+    def insert_pd_dataframe(self, dataframe, table_name):
+        with timer(f"Inserting {dataframe} into {table_name}"):
+            tuples = [tuple(x) for x in dataframe.to_numpy()]
+            columns = ",".join(list(dataframe.columns))
+
+            query = "INSERT INTO %s(%s) VALUES %%s" % (table_name, columns)
+            try:
+                conn = self.connect_to_postgres()
+                if conn is not None:
+                    with conn.cursor() as cur:
+                        extras.execute_values(cur, query, tuples)
+                    conn.commit()
+            except (Exception, psycopg2.DatabaseError) as error:
+                logger.error(f"Error: {error}")
+            finally:
+                if conn is not None:
+                    conn.close()
+
+    def pg_to_pd_dataframe(self, query, columns):
+        with timer(f"Converting {query} to pandas dataframe"):
+            try:
+                conn = self.connect_to_postgres()
+                if conn is not None:
+                    with conn.cursor() as cur:
+                        cur.execute(query)
+                        tuples_list = cur.fetchall()
+                        return pd.DataFrame(tuples_list, columns=columns)
+            except (Exception, psycopg2.DatabaseError) as error:
+                logger.error(f"Error: {error}")
             finally:
                 if conn is not None:
                     conn.close()
@@ -92,5 +127,6 @@ if __name__ == "__main__":
         )
         """
     ]
+
     pg_server = DatabaseManipulate("database.ini", "postgresql")
-    pg_server.run_commands(create_landing_table_command)
+    pg_server.run_ddl_commands(create_landing_table_command)
