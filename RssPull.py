@@ -7,7 +7,7 @@ import requests
 import pandas as pd
 from contextlib import contextmanager
 import time as tme
-from datetime import datetime, timedelta
+from datetime import date, datetime, timedelta
 import pytz
 
 logging.basicConfig(level=logging.INFO)
@@ -195,7 +195,10 @@ class RssPull:
                     all_titles.append(self.extract_titles(item))
                     all_content.append(self.extract_content(item))
 
+        today = date.today()
+
         return {
+            "extracted_date": today,
             "published": all_published_dates,
             "authors": all_authors,
             "urls": all_urls,
