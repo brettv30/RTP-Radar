@@ -278,6 +278,10 @@ if __name__ == "__main__":
 
     last_24_df = preprocessor.filter_for_last_24_hrs(cleaned_dates_df)
 
+    load_to_pg = last_24_df[
+        ["extracted_date", "published", "urls", "authors", "title", "content"]
+    ]
+
     # Consider sending last_24_df to a postgres table to save off "raw" data
 
     cleaned_titles_df = preprocessor.clean_titles(last_24_df)
