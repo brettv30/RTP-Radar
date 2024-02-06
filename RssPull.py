@@ -9,6 +9,7 @@ from contextlib import contextmanager
 import time as tme
 from datetime import date, datetime, timedelta
 import pytz
+import DatabaseInteractions
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -264,6 +265,7 @@ if __name__ == "__main__":
         "https://reddit.com/r/bullcity/new/.rss?sort=new",
     ]
 
+    pg_server = DatabaseInteractions.DatabaseManipulate("database.ini", "postgresql")
     parser = URLParser()
 
     test = RssPull(parser, feed_list)
@@ -281,13 +283,37 @@ if __name__ == "__main__":
     load_to_pg = last_24_df[
         ["extracted_date", "published", "urls", "authors", "title", "content"]
     ]
+    print(load_to_pg.head())
+    print(load_to_pg.tail())
 
-    # Consider sending last_24_df to a postgres table to save off "raw" data
+    # Load Raw Data from the last 24 hours into postgres DB
+    pg_server.insert_pd_dataframe(load_to_pg, "land_tbl_raw_feeds")
 
-    cleaned_titles_df = preprocessor.clean_titles(last_24_df)
-    cleaned_content_df = preprocessor.clean_content(cleaned_titles_df)
+    extraction_query = """ SELECT *
+                            FROM land_tbl_raw_feeds
+                        """
 
-    populated_content_df = preprocessor.filter_for_populated_content(cleaned_content_df)
+    columns_to_extract = [
+        "table_id",
+        "extracted_date",
+        "published_date",
+        "url",
+        "author",
+        "title",
+        "content",
+    ]
+
+    # Extract Raw Data from the last 24 hours from postgres DB
+    pg_raw = pg_server.pg_to_pd_dataframe(extraction_query, columns_to_extract)
+
+    print(pg_raw.head())
+    print(pg_raw.tail())
+
+    # Additional preprocessing of raw data
+    # cleaned_titles_df = preprocessor.clean_titles(pg_raw)
+    # cleaned_content_df = preprocessor.clean_content(cleaned_titles_df)
+
+    # populated_content_df = preprocessor.filter_for_populated_content(cleaned_content_df)
 
     # Note here to think about how much preprocessing we want to do on the content.
     # For example, we could remove stop words, punctuation, and other non-essential characters.
