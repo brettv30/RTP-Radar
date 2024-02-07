@@ -116,14 +116,14 @@ class NoSectionError(Exception):
 if __name__ == "__main__":
     create_landing_table_command = [
         """
-        CREATE TABLE  land_tbl_raw_feeds(
+        CREATE TABLE land_tbl_raw_feeds(
             table_id integer primary key generated always as identity,
             extraction_date timestamp with time zone not null,
             published_date timestamp with time zone not null,
             url text not null, 
-            author text, 
+            author text not null, 
             title text not null,
-            content text not null
+            content text
         )
         """
     ]
