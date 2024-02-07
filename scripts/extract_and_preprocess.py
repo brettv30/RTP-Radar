@@ -42,5 +42,3 @@ if __name__ == "__main__":
     only_news = populated_content_df[
         ~populated_content_df["url"].str.contains("reddit|dailytarheel", case=False)
     ]
-
-    print(only_news["content"].head(10))
