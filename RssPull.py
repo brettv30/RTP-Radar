@@ -281,21 +281,41 @@ if __name__ == "__main__":
     last_24_df = preprocessor.filter_for_last_24_hrs(cleaned_dates_df)
 
     load_to_pg = last_24_df[
-        ["extracted_date", "published", "urls", "authors", "title", "content"]
-    ]
-    print(load_to_pg.head())
-    print(load_to_pg.tail())
+        [
+            "extracted_date",
+            "formatted_eastern_published",
+            "urls",
+            "authors",
+            "title",
+            "content",
+        ]
+    ].copy()
+
+    load_to_pg.rename(
+        columns={
+            "extracted_date": "extraction_date",
+            "formatted_eastern_published": "published_date",
+            "urls": "url",
+            "authors": "author",
+        },
+        inplace=True,
+    )
+
+    # Clear table while testing
+    pg_server.run_ddl_commands(["""TRUNCATE TABLE land_tbl_raw_feeds"""])
 
     # Load Raw Data from the last 24 hours into postgres DB
     pg_server.insert_pd_dataframe(load_to_pg, "land_tbl_raw_feeds")
 
+    # Get the most recent data from the table
     extraction_query = """ SELECT *
                             FROM land_tbl_raw_feeds
+                            WHERE extraction_date = (SELECT MAX(extraction_date) FROM land_tbl_raw_feeds)
                         """
 
     columns_to_extract = [
         "table_id",
-        "extracted_date",
+        "extraction_date",
         "published_date",
         "url",
         "author",
@@ -303,17 +323,17 @@ if __name__ == "__main__":
         "content",
     ]
 
-    # Extract Raw Data from the last 24 hours from postgres DB
+    # Extract all Raw Data from the last 24 hours from postgres DB
     pg_raw = pg_server.pg_to_pd_dataframe(extraction_query, columns_to_extract)
 
-    print(pg_raw.head())
-    print(pg_raw.tail())
-
     # Additional preprocessing of raw data
-    # cleaned_titles_df = preprocessor.clean_titles(pg_raw)
-    # cleaned_content_df = preprocessor.clean_content(cleaned_titles_df)
+    cleaned_titles_df = preprocessor.clean_titles(pg_raw)
+    cleaned_content_df = preprocessor.clean_content(cleaned_titles_df)
 
-    # populated_content_df = preprocessor.filter_for_populated_content(cleaned_content_df)
+    populated_content_df = preprocessor.filter_for_populated_content(cleaned_content_df)
+
+    print(populated_content_df.head())
+    print(populated_content_df.tail())
 
     # Note here to think about how much preprocessing we want to do on the content.
     # For example, we could remove stop words, punctuation, and other non-essential characters.
