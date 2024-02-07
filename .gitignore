@@ -1,0 +1,11 @@
+# Virtual Environment
+/.venv
+
+# Environment Variables
+.env
+
+# Database Connection
+database.ini
+
+# Cache
+/__pycache__
