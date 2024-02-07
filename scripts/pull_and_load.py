@@ -1,3 +1,10 @@
+import sys
+
+new_path = "C:\\Users\\Brett\\OneDrive\\Desktop\\RTP-Radar\\"
+
+if new_path not in sys.path:
+    sys.path.append(new_path)
+
 from RssPull import *
 from DatabaseInteractions import *
 
@@ -13,7 +20,7 @@ if __name__ == "__main__":
         "https://reddit.com/r/bullcity/new/.rss?sort=new",
     ]
 
-    pg_server = DatabaseInteractions.DatabaseManipulate("database.ini", "postgresql")
+    pg_server = DatabaseManipulate("database.ini", "postgresql")
     preprocessor = DataCleaner()
 
     new_rss_pull = RssPull(feed_list)

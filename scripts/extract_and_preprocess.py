@@ -1,9 +1,16 @@
+import sys
+
+new_path = "C:\\Users\\Brett\\OneDrive\\Desktop\\RTP-Radar\\"
+
+if new_path not in sys.path:
+    sys.path.append(new_path)
+
 from RssPull import *
 from DatabaseInteractions import *
 
 # Script used for postgres table extraction and data preprocessing
 if __name__ == "__main__":
-    pg_server = DatabaseInteractions.DatabaseManipulate("database.ini", "postgresql")
+    pg_server = DatabaseManipulate("database.ini", "postgresql")
     preprocessor = DataCleaner()
 
     # Get the most recent data from the table
@@ -31,9 +38,9 @@ if __name__ == "__main__":
 
     populated_content_df = preprocessor.filter_for_populated_content(cleaned_content_df)
 
-    print(populated_content_df.head())
-    print(populated_content_df.tail())
+    # Filter for only news observations, that way we can identify the news that is actually about RTP
+    only_news = populated_content_df[
+        ~populated_content_df["url"].str.contains("reddit|dailytarheel", case=False)
+    ]
 
-    # Note here to think about how much preprocessing we want to do on the content.
-    # For example, we could remove stop words, punctuation, and other non-essential characters.
-    # We also could exclude any observations that have content which is not relevant to raligh, durham, chapel hill, or the RTP area
+    print(only_news["content"].head(10))
