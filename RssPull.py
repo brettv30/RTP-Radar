@@ -168,9 +168,8 @@ class URLParser:
             return None
 
 
-class RssPull:
-    def __init__(self, url_parser, feed_list):
-        self.url_parser = url_parser
+class RssPull(URLParser):
+    def __init__(self, feed_list):
         self.feed_list = feed_list
 
     def parse_feed(self, url):
@@ -223,7 +222,7 @@ class RssPull:
         with timer("Extracting titles"):
             if hasattr(item, "title"):
                 return item.title
-            title_results = self.url_parser.extract_url_title(item.link)
+            title_results = self.extract_url_title(item.link)
             return title_results if title_results is not None else "Unknown title"
 
     def extract_content(self, item):
@@ -233,7 +232,7 @@ class RssPull:
                 html_content = item.content[0]["value"]
 
                 # Parsing the HTML with BeautifulSoup
-                soup = self.url_parser.parse_page(html_content)
+                soup = self.parse_page(html_content)
 
                 # Extracting text from all <p> tags if there are any <p> tags
                 if len(soup.find_all("p")) > 0:
@@ -248,7 +247,7 @@ class RssPull:
                 and "abc11" in item.link
                 or not hasattr(item, "content")
             ):
-                content_results = self.url_parser.extract_url_content(item.link)
+                content_results = self.extract_url_content(item.link)
                 return content_results if content_results is not None else ""
             else:
                 return item.content
@@ -266,9 +265,8 @@ if __name__ == "__main__":
     ]
 
     pg_server = DatabaseInteractions.DatabaseManipulate("database.ini", "postgresql")
-    parser = URLParser()
 
-    test = RssPull(parser, feed_list)
+    test = RssPull(feed_list)
     test_dict = test.pull_feed()
 
     dict_cols = list(test_dict.keys())
