@@ -5,13 +5,16 @@ new_path = "C:\\Users\\Brett\\OneDrive\\Desktop\\RTP-Radar\\"
 if new_path not in sys.path:
     sys.path.append(new_path)
 
+from ContentExtensions import *
 from RssPull import *
 from DatabaseInteractions import *
+
 
 # Script used for postgres table extraction and data preprocessing
 if __name__ == "__main__":
     pg_server = DatabaseManipulate("database.ini", "postgresql")
     preprocessor = DataCleaner()
+    extender = ContentExtender()
 
     # Get the most recent data from the table
     extraction_query = """ SELECT *
@@ -36,9 +39,27 @@ if __name__ == "__main__":
     cleaned_titles_df = preprocessor.clean_titles(pg_raw)
     cleaned_content_df = preprocessor.clean_content(cleaned_titles_df)
 
-    populated_content_df = preprocessor.filter_for_populated_content(cleaned_content_df)
+    # Make an actual dataframe instead of a slice
+    populated_content_df = preprocessor.filter_for_populated_content(
+        cleaned_content_df
+    ).copy()
 
-    # Filter for only news observations, that way we can identify the news that is actually about RTP
-    only_news = populated_content_df[
-        ~populated_content_df["url"].str.contains("reddit|dailytarheel", case=False)
-    ]
+    # Extract Nouns from content because we might want to use these to filter
+    populated_content_df["content_nouns"] = extender.get_nouns(
+        populated_content_df["content"]
+    )
+
+    # Extract Keywords from content because we might want to use these to display & filter
+    populated_content_df["content_keywords"] = extender.get_keywords(
+        populated_content_df["content"]
+    )
+    # Extract Emotions from content because we may want to display
+    classifier = extender.set_hf_pipeline(
+        "text-classification", "SamLowe/roberta-base-go_emotions"
+    )
+
+    populated_content_df["content_emotions"] = classifier(
+        populated_content_df["content"].tolist()
+    )
+
+    # Generate summaries of content
