@@ -3,7 +3,7 @@ from keybert import KeyBERT
 from textblob import TextBlob
 from transformers import pipeline
 from langchain_community.llms import HuggingFaceHub
-from langchain.chains import LLMChain
+from langchain_core.output_parsers import StrOutputParser
 from langchain.prompts import PromptTemplate
 from dotenv import load_dotenv
 
@@ -44,6 +44,20 @@ class ContentExtender:
             max_length=self.hf_max_length,
             truncation=self.hf_truncation,
         )
+
+
+class ContentSummarizer:
+    def __init__(self):
+        self.template = """"""  # TODO: Add Prompt Template
+        self.prompt = PromptTemplate.from_template(self.template)
+        self.repo_id = "mistralai/Mistral-7B-v0.1"
+        self.model = HuggingFaceHub(repo_id=self.repo_id)
+        self.chain = self.prompt | self.model | StrOutputParser()
+
+    def get_summary(self, content_list):
+        # Pass everything from the content column to the chain and get the summarized output (consider prompting to only summarize the observations greater than 250 words)
+        # Return the list of content summaries that we can store as a column in a pandas DF
+        pass
 
 
 if __name__ == "__main__":
