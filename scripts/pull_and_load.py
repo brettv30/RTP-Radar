@@ -14,6 +14,7 @@ if __name__ == "__main__":
         "http://www.wral.com/news/rss/142/",
         "https://www.durhamnc.gov/RSSFeed.aspx?ModID=76&CID=All-0",
         "https://abc11.com/feed/",
+        "https://www.cbs17.com/app-feed/",
         "https://www.dailytarheel.com/plugin/feeds/tag/pageOne"
         "https://reddit.com/r/raleigh/new/.rss?sort=new",
         "https://reddit.com/r/chapelhill/new/.rss?sort=new",
