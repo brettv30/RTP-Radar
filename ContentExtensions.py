@@ -48,16 +48,22 @@ class ContentExtender:
 
 class ContentSummarizer:
     def __init__(self):
-        self.template = """"""  # TODO: Add Prompt Template
+        self.template = """
+        You are a new reporter for news related to the Research Triangle Park area in North Carolina. Your job is to summarize articles and reddit posts that originate from the Research Triangle Park area.
+        For every 250-300 word summary outlining the main points of each article or reddit post you will get paid an additional $200. 
+        If the article or reddit post is less than 250 words then don't waste your time writing a summary. 
+        Please write a summary of the following piece of content:
+
+        {article} 
+        """
         self.prompt = PromptTemplate.from_template(self.template)
         self.repo_id = "mistralai/Mistral-7B-v0.1"
         self.model = HuggingFaceHub(repo_id=self.repo_id)
         self.chain = self.prompt | self.model | StrOutputParser()
 
     def get_summary(self, content_list):
-        # Pass everything from the content column to the chain and get the summarized output (consider prompting to only summarize the observations greater than 250 words)
-        # Return the list of content summaries that we can store as a column in a pandas DF
-        pass
+        list_of_dicts = [{"article": content} for content in content_list]
+        return self.chain.batch(list_of_dicts)
 
 
 if __name__ == "__main__":
