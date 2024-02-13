@@ -9,6 +9,8 @@ from ContentExtensions import *
 from RssPull import *
 from DatabaseInteractions import *
 
+os.environ["HUGGINGFACEHUB_API_TOKEN"] = os.getenv["HUGGINGFACEHUB_API_TOKEN"]
+
 
 # Script used for postgres table extraction and data preprocessing
 if __name__ == "__main__":
