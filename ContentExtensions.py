@@ -1,4 +1,5 @@
 import os
+import logging
 from keybert import KeyBERT
 from textblob import TextBlob
 from transformers import pipeline
@@ -6,8 +7,24 @@ from langchain_community.llms import HuggingFaceHub
 from langchain_core.output_parsers import StrOutputParser
 from langchain.prompts import PromptTemplate
 from dotenv import load_dotenv
+import time as tme
+from contextlib import contextmanager
 
 load_dotenv()
+
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
+
+
+@contextmanager
+def timer(label):
+    start = tme.time()
+    try:
+        yield
+    finally:
+        end = tme.time()
+    time = round(end - start, 2)
+    logger.info(f"{label}: {time} seconds")
 
 
 class ContentExtender:
@@ -29,21 +46,24 @@ class ContentExtender:
         self.hf_truncation = True
 
     def get_nouns(self, content_list):
-        return [TextBlob(content).noun_phrases for content in content_list]
+        with timer("Extracting Nouns from Content"):
+            return [TextBlob(content).noun_phrases for content in content_list]
 
     def get_keywords(self, content_list):
-        return self.kw_model.extract_keywords(
-            content_list.tolist(),
-            seed_keywords=self.keywords,
-        )
+        with timer("Extracting Keywords from Content"):
+            return self.kw_model.extract_keywords(
+                content_list.tolist(),
+                seed_keywords=self.keywords,
+            )
 
     def set_hf_pipeline(self, task, model):
-        return pipeline(
-            task=task,
-            model=model,
-            max_length=self.hf_max_length,
-            truncation=self.hf_truncation,
-        )
+        with timer(f"Loading HuggingFace Pipeline for {task}"):
+            return pipeline(
+                task=task,
+                model=model,
+                max_length=self.hf_max_length,
+                truncation=self.hf_truncation,
+            )
 
 
 class ContentSummarizer:
@@ -62,10 +82,6 @@ class ContentSummarizer:
         self.chain = self.prompt | self.model | StrOutputParser()
 
     def get_summary(self, content_list):
-        list_of_dicts = [{"article": content} for content in content_list]
-        return self.chain.batch(list_of_dicts)
-
-
-if __name__ == "__main__":
-
-    os.environ["HUGGINGFACEHUB_API_TOKEN"] = os.getenv["HUGGINGFACEHUB_API_TOKEN"]
+        with timer("Generating Summaries of Content"):
+            list_of_dicts = [{"article": content} for content in content_list]
+            return self.chain.batch(list_of_dicts, config={"max_concurrency": 5})
