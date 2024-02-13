@@ -1,4 +1,3 @@
-import os
 import logging
 from keybert import KeyBERT
 from textblob import TextBlob
@@ -6,11 +5,8 @@ from transformers import pipeline
 from langchain_community.llms import HuggingFaceHub
 from langchain_core.output_parsers import StrOutputParser
 from langchain.prompts import PromptTemplate
-from dotenv import load_dotenv
 import time as tme
 from contextlib import contextmanager
-
-load_dotenv()
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
