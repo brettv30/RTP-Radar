@@ -1,4 +1,6 @@
 import sys
+import os
+from dotenv import load_dotenv
 
 new_path = "C:\\Users\\Brett\\OneDrive\\Desktop\\RTP-Radar\\"
 
@@ -9,7 +11,9 @@ from ContentExtensions import *
 from RssPull import *
 from DatabaseInteractions import *
 
-os.environ["HUGGINGFACEHUB_API_TOKEN"] = os.getenv["HUGGINGFACEHUB_API_TOKEN"]
+load_dotenv()
+
+os.environ["HUGGINGFACEHUB_API_TOKEN"] = os.getenv("HUGGINGFACEHUB_API_TOKEN")
 
 
 # Script used for postgres table extraction and data preprocessing
