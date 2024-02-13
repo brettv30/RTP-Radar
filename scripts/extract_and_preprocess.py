@@ -15,6 +15,7 @@ if __name__ == "__main__":
     pg_server = DatabaseManipulate("database.ini", "postgresql")
     preprocessor = DataCleaner()
     extender = ContentExtender()
+    summarizer = ContentSummarizer()
 
     # Get the most recent data from the table
     extraction_query = """ SELECT *
@@ -63,3 +64,6 @@ if __name__ == "__main__":
     )
 
     # Generate summaries of content
+    test_list = summarizer.get_summary(populated_content_df["content"])
+
+    print(test_list)
