@@ -1,6 +1,5 @@
 import sys
-import os
-from dotenv import load_dotenv
+import concurrent.futures
 
 new_path = "C:\\Users\\Brett\\OneDrive\\Desktop\\RTP-Radar\\"
 
@@ -10,11 +9,6 @@ if new_path not in sys.path:
 from ContentExtensions import *
 from RssPull import *
 from DatabaseInteractions import *
-
-load_dotenv()
-
-os.environ["HUGGINGFACEHUB_API_TOKEN"] = os.getenv("HUGGINGFACEHUB_API_TOKEN")
-
 
 # Script used for postgres table extraction and data preprocessing
 if __name__ == "__main__":
@@ -51,25 +45,30 @@ if __name__ == "__main__":
         cleaned_content_df
     ).copy()
 
-    # Extract Nouns from content because we might want to use these to filter
-    populated_content_df["content_nouns"] = extender.get_nouns(
-        populated_content_df["content"]
-    )
+    # Using ThreadPoolExecutor to parallelize the processing of entire content lists
+    with concurrent.futures.ThreadPoolExecutor(max_workers=4) as executor:
+        # Submit the entire list to each function
+        future_nouns = executor.submit(
+            extender.get_nouns, populated_content_df["content"]
+        )
+        future_keywords = executor.submit(
+            extender.get_keywords, populated_content_df["content"]
+        )
+        future_emotions = executor.submit(
+            extender.classify_emotions, populated_content_df["content"].tolist()
+        )
+        future_summaries = executor.submit(
+            summarizer.get_summaries, populated_content_df["content"]
+        )
 
-    # Extract Keywords from content because we might want to use these to display & filter
-    populated_content_df["content_keywords"] = extender.get_keywords(
-        populated_content_df["content"]
-    )
-    # Extract Emotions from content because we may want to display
-    classifier = extender.set_hf_pipeline(
-        "text-classification", "SamLowe/roberta-base-go_emotions"
-    )
+        # Wait for all futures to complete and assign the results
+        populated_content_df["content_nouns"] = future_nouns.result()
+        populated_content_df["content_keywords"] = future_keywords.result()
+        populated_content_df["content_emotions"] = future_emotions.result()
+        populated_content_df["content_summaries"] = future_summaries.result()
 
-    populated_content_df["content_emotions"] = classifier(
-        populated_content_df["content"].tolist()
-    )
-
-    # Generate summaries of content
-    test_list = summarizer.get_summary(populated_content_df["content"])
-
-    print(test_list)
+    print(populated_content_df["content"].head())
+    print(populated_content_df["content_nouns"].head())
+    print(populated_content_df["content_keywords"].head())
+    print(populated_content_df["content_emotions"].head())
+    print(populated_content_df["content_summaries"].head())
