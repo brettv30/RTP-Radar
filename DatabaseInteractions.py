@@ -75,7 +75,7 @@ class DatabaseManipulate(DatabaseConfig):
                     conn.close()
 
     def insert_pd_dataframe(self, dataframe, table_name):
-        with timer(f"Inserting {dataframe} into {table_name}"):
+        with timer(f"Inserting recently pulled data into {table_name}"):
             tuples = [tuple(x) for x in dataframe.to_numpy()]
             columns = ",".join(list(dataframe.columns))
 

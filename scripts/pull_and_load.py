@@ -55,8 +55,5 @@ if __name__ == "__main__":
         inplace=True,
     )
 
-    # Clear table while testing
-    pg_server.run_ddl_commands(["""TRUNCATE TABLE land_tbl_raw_feeds"""])
-
     # Load Raw Data from the last 24 hours into postgres DB
     pg_server.insert_pd_dataframe(load_to_pg, "land_tbl_raw_feeds")
