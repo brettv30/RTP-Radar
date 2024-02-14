@@ -2,14 +2,17 @@ import logging
 from keybert import KeyBERT
 from textblob import TextBlob
 from transformers import pipeline
-from langchain_community.llms import HuggingFaceHub
-from langchain_core.output_parsers import StrOutputParser
+from langchain_openai import ChatOpenAI
+from langchain.output_parsers.openai_functions import JsonKeyOutputFunctionsParser
 from langchain.prompts import PromptTemplate
 import time as tme
 from contextlib import contextmanager
+from dotenv import dotenv_values
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
+
+test = dotenv_values("C:\\Users\\Brett\\OneDrive\\Desktop\\RTP-Radar\\.env")
 
 
 @contextmanager
@@ -61,6 +64,13 @@ class ContentExtender:
                 truncation=self.hf_truncation,
             )
 
+    def classify_emotions(self, content_list):
+        with timer("Classifying Emotions from Content"):
+            classifier = self.set_hf_pipeline(
+                "text-classification", "SamLowe/roberta-base-go_emotions"
+            )
+            return classifier(content_list)
+
 
 class ContentSummarizer:
     def __init__(self):
@@ -73,11 +83,37 @@ class ContentSummarizer:
         {article} 
         """
         self.prompt = PromptTemplate.from_template(self.template)
-        self.repo_id = "mistralai/Mistral-7B-v0.1"
-        self.model = HuggingFaceHub(repo_id=self.repo_id)
-        self.chain = self.prompt | self.model | StrOutputParser()
+        self.openai_modelname = "gpt-3.5-turbo-0125"
+        self.model = ChatOpenAI(
+            openai_api_key=test["OPENAI_API_KEY"],
+            model_name=self.openai_modelname,
+            temperature=0.5,
+        )
+        self.functions = [
+            {
+                "name": "summarize",
+                "description": "A summary of the content",
+                "parameters": {
+                    "type": "object",
+                    "properties": {
+                        "summary": {
+                            "type": "string",
+                            "description": "The summary of the content",
+                        },
+                    },
+                    "required": ["summary"],
+                },
+            }
+        ]
+        self.chain = (
+            self.prompt
+            | self.model.bind(
+                function_call={"name": "summarize"}, functions=self.functions
+            )
+            | JsonKeyOutputFunctionsParser(key_name="summary")
+        )
 
-    def get_summary(self, content_list):
+    def get_summaries(self, content_list):
         with timer("Generating Summaries of Content"):
             list_of_dicts = [{"article": content} for content in content_list]
-            return self.chain.batch(list_of_dicts, config={"max_concurrency": 5})
+            return self.chain.batch(list_of_dicts)
