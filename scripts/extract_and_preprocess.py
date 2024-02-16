@@ -57,18 +57,30 @@ if __name__ == "__main__":
         future_emotions = executor.submit(
             extender.classify_emotions, populated_content_df["content"].tolist()
         )
-        future_summaries = executor.submit(
-            summarizer.get_summaries, populated_content_df["content"]
-        )
+        # future_summaries = executor.submit(
+        #     summarizer.get_summaries, populated_content_df["content"]
+        # )
 
         # Wait for all futures to complete and assign the results
         populated_content_df["content_nouns"] = future_nouns.result()
         populated_content_df["content_keywords"] = future_keywords.result()
         populated_content_df["content_emotions"] = future_emotions.result()
-        populated_content_df["content_summaries"] = future_summaries.result()
+        # populated_content_df["content_summaries"] = future_summaries.result()
+
+    gpt_35_turbo_max_tokens = 16385
+    content_summaries = []
+    for entry in populated_content_df["content"]:
+        num_tokens = summarizer.num_tokens_from_string(entry)
+        if num_tokens < gpt_35_turbo_max_tokens:
+            summarizer.set_chain("stuff")
+            content_summaries += summarizer.get_summaries(entry)
+        else:
+            summarizer.set_chain("map_reduce")
+            entry_docs = summarizer.make_docs(entry)
+            content_summaries += summarizer.get_summaries(entry_docs)
 
     print(populated_content_df["content"].head())
     print(populated_content_df["content_nouns"].head())
     print(populated_content_df["content_keywords"].head())
     print(populated_content_df["content_emotions"].head())
-    print(populated_content_df["content_summaries"].head())
+    print(content_summaries)

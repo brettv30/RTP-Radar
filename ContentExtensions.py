@@ -4,10 +4,14 @@ from textblob import TextBlob
 from transformers import pipeline
 from langchain_openai import ChatOpenAI
 from langchain.output_parsers.openai_functions import JsonKeyOutputFunctionsParser
+from langchain.chains.summarize import load_summarize_chain
+from langchain.docstore.document import Document
+from langchain.text_splitter import CharacterTextSplitter
 from langchain.prompts import PromptTemplate
 import time as tme
 from contextlib import contextmanager
 from dotenv import dotenv_values
+import tiktoken
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -89,6 +93,10 @@ class ContentSummarizer:
             model_name=self.openai_modelname,
             temperature=0.5,
         )
+        self.text_splitter = CharacterTextSplitter.from_tiktoken_encoder(
+            model_name=self.openai_modelname
+        )
+        self.verbose = True
         self.functions = [
             {
                 "name": "summarize",
@@ -105,15 +113,48 @@ class ContentSummarizer:
                 },
             }
         ]
-        self.chain = (
-            self.prompt
-            | self.model.bind(
-                function_call={"name": "summarize"}, functions=self.functions
-            )
-            | JsonKeyOutputFunctionsParser(key_name="summary")
-        )
+        # self.chain = (
+        #     self.prompt
+        #     | self.model.bind(
+        #         function_call={"name": "summarize"}, functions=self.functions
+        #     )
+        #     | JsonKeyOutputFunctionsParser(key_name="summary")
+        # )
 
-    def get_summaries(self, content_list):
+    def get_summaries(self, content):
         with timer("Generating Summaries of Content"):
-            list_of_dicts = [{"article": content} for content in content_list]
-            return self.chain.batch(list_of_dicts)
+            chain = self.get_chain()
+            if type(content) != list:
+                content_dict = {"article": content}
+            else:
+                # ADD CODE HERE TO HANDLE WHEN CONTENT IS A LIST OF DOCUMENTS
+            return chain.invoke(content_dict)
+
+    def num_tokens_from_string(self, string: str) -> int:
+        with timer("Calculating Number of Tokens"):
+            encoding = tiktoken.encoding_for_model(self.openai_modelname)
+            num_tokens = len(encoding.encode(string))
+            return num_tokens
+
+    def set_chain(self, chain_type):
+        with timer(f"Setting {chain_type} Chain"):
+            if chain_type == "stuff":
+                self.chain = load_summarize_chain(
+                    self.model, chain_type=chain_type, prompt=self.prompt
+                )
+            else:
+                self.chain = load_summarize_chain(
+                    self.model,
+                    chain_type=chain_type,
+                    map_prompt=self.prompt,
+                    combine_prompt=self.prompt,
+                )
+
+    def get_chain(self):
+        return self.chain
+
+    def make_docs(self, content):
+        with timer("Splitting Long content into multiple docs"):
+            texts = self.text_splitter.split_text(content)
+
+            return [Document(page_content=t) for t in texts]
